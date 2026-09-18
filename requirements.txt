@@ -6,3 +6,15 @@ opencv-python
 plyfile
 huggingface_hub
 safetensors
+accelerate
+transformers
+easydict
+hydra-core
+hydra-colorlog
+omegaconf
+pandas
+prettytable
+rich
+scipy
+tensorboard
+tqdm

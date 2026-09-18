@@ -10,7 +10,7 @@ from .layers.block import BlockRope
 from .layers.attention import FlashAttentionRope
 from .layers.transformer_head import TransformerDecoder, LinearPts3d, ContextTransformerDecoder
 from .layers.camera_head import CameraHead
-from .dinov2.hub.backbones import dinov2_vitl14, dinov2_vitl14_reg
+from .dinov2.hub.backbones import dinov2_vits14_reg, dinov2_vitb14_reg, dinov2_vitl14_reg
 from torch.utils.checkpoint import checkpoint
 from safetensors.torch import load_file
 
@@ -27,6 +27,7 @@ class Pi3(nn.Module):
     def __init__(
             self,
             pos_type='rope100',
+            encoder_size='large',
             decoder_size='large',
             load_vggt=True,
             freeze_encoder=True,
@@ -40,7 +41,21 @@ class Pi3(nn.Module):
         # ----------------------
         #        Encoder
         # ----------------------
-        self.encoder = dinov2_vitl14_reg(pretrained=False)
+        encoder_builders = {
+            'small': dinov2_vits14_reg,
+            'base': dinov2_vitb14_reg,
+            'large': dinov2_vitl14_reg,
+        }
+        if encoder_size not in encoder_builders:
+            raise ValueError(f'Unsupported encoder size: {encoder_size}')
+        if encoder_size != decoder_size:
+            raise ValueError(
+                f'Encoder and decoder sizes must match, got {encoder_size!r} and {decoder_size!r}'
+            )
+        if load_vggt and encoder_size != 'large':
+            raise ValueError('VGGT weights are only compatible with the large model')
+
+        self.encoder = encoder_builders[encoder_size](pretrained=False)
         self.patch_size = 14
         del self.encoder.mask_token
 

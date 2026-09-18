@@ -3,6 +3,7 @@
 model:
     _target_: pi3.models.pi3_training.Pi3
     pos_type: rope100
+    encoder_size: large
     decoder_size: large
     load_vggt: true
     freeze_encoder: true

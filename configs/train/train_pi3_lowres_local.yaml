@@ -1,0 +1,30 @@
+# @package _global_
+
+trainer: trainers.pi3_trainer.Pi3Trainer
+
+train:
+    image_num_range: [2, 4]
+    max_img_per_gpu: 4
+    resolution:
+        - [224, 224]
+
+    num_workers: 2
+    num_epoch: 1
+    iters_per_epoch: 10
+    print_freq: 1
+
+test:
+    num_workers: 2
+    iters_per_test: 2
+    print_freq: 1
+
+log:
+    ckpt_interval: 1
+    max_checkpoints: 1
+
+model:
+    encoder_size: small
+    decoder_size: small
+    load_vggt: false
+    freeze_encoder: false
+    ckpt: null

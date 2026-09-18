@@ -1,0 +1,46 @@
+# @package _global_
+
+train_dataset:
+    length: 10000
+
+    weights:
+        CO3DV2: 1
+
+    CO3DV2:
+        _target_: datasets.co3dv2_dataset.CO3DV2Dataset
+        data_root: /home/voyah/Downloads/co3d
+        z_far: 0
+        frame_num: 4
+        aug_crop: 16
+        transform:
+            _partial_: true
+            _target_: datasets.base.transforms.JitterJpegLossBlurring
+        aug_focal: 0.9
+        mask_bg: rand
+        mode: train
+
+train_dataloader:
+    drop_last: true
+    shuffle: true
+
+test_dataset:
+    weights:
+        CO3DV2: 100
+
+    CO3DV2:
+        _target_: datasets.co3dv2_dataset.CO3DV2Dataset
+        data_root: /home/voyah/Downloads/co3d
+        z_far: 0
+        frame_num: 4
+        resolution:
+            - [224, 224]
+        transform:
+            _partial_: true
+            _target_: datasets.base.transforms.ImgToTensor
+        mask_bg: false
+        shuffle: false
+        mode: test
+
+test_dataloader:
+    drop_last: false
+    shuffle: false

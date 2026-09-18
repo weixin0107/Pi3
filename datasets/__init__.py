@@ -81,7 +81,14 @@ def create_dataloader(cfg, mode):
         print('Dataset length per rank:', len(dataset) // world_size)
         assert (max_img_per_gpu // image_num_range[0]) * cfg.train.iters_per_epoch < len(dataset) // world_size
 
-    sampler = DynamicDistributedSampler(dataset, seed=cfg.train.base_seed, shuffle=cfg_dataloader.shuffle, rank=rank, drop_last=cfg_dataloader.drop_last)
+    sampler = DynamicDistributedSampler(
+        dataset,
+        num_replicas=world_size,
+        seed=cfg.train.base_seed,
+        shuffle=cfg_dataloader.shuffle,
+        rank=rank,
+        drop_last=cfg_dataloader.drop_last,
+    )
     batch_sampler = DynamicBatchSampler(
         sampler, 
         num_resolution, 

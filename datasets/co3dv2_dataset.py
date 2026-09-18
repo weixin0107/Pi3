@@ -71,37 +71,43 @@ class CO3DV2Dataset(BaseDataset):
         assert data_root is not None
 
         self.verbose = verbose
-        self.dataset_label = 'COD3DV2'
+        self.dataset_label = 'CO3DV2'
         self.data_root = data_root
 
         assert mask_bg in (True, False, 'rand')
         self.mask_bg = mask_bg
 
-        if not os.path.exists(f'data/dataset_cache/co3dv2_{self.mode}_cache.npy'):
+        cache_dir = 'data/dataset_cache'
+        cache_file = osp.join(cache_dir, f'co3dv2_{self.mode}_cache.npy')
+        os.makedirs(cache_dir, exist_ok=True)
+
+        if not os.path.exists(cache_file):
             self.sequences = []
             self.num_image = {}
 
-            for seq in tqdm(os.listdir(data_root)):
+            annotation_suffix = f'_{self.mode}.jgz'
+            annotation_files = sorted(
+                filename for filename in os.listdir(data_root)
+                if filename.endswith(annotation_suffix)
+            )
+            for annotation_file in tqdm(annotation_files):
+                seq = annotation_file[:-len(annotation_suffix)]
                 try:
-                    annotation_path_train = osp.join(data_root, seq + '_train.jgz')
-                    annotation_path_test = osp.join(data_root, seq + '_test.jgz')
-                    if self.mode == 'train':
-                        with gzip.open(annotation_path_train, 'rt', encoding='utf-8') as f:
-                            annotation = json.load(f)
-                    else:
-                        with gzip.open(annotation_path_test, 'rt', encoding='utf-8') as f:
-                            annotation = json.load(f)
-                except:
+                    annotation_path = osp.join(data_root, annotation_file)
+                    with gzip.open(annotation_path, 'rt', encoding='utf-8') as f:
+                        annotation = json.load(f)
+                except (OSError, json.JSONDecodeError) as exc:
+                    print(f'[{self.dataset_label}] Failed to load {annotation_file}: {exc}', flush=True)
                     continue
 
                 for sub_seq in annotation.keys():
                     self.num_image[(seq, sub_seq)] = len(annotation[sub_seq])
                     self.sequences.append((seq, sub_seq))
 
-            np.save(f'data/dataset_cache/co3dv2_{self.mode}_cache', dict(sequences=self.sequences, num_image=self.num_image))
+            np.save(cache_file, dict(sequences=self.sequences, num_image=self.num_image))
 
         else:
-            npy = np.load(f'data/dataset_cache/co3dv2_{self.mode}_cache.npy', allow_pickle=True).item()
+            npy = np.load(cache_file, allow_pickle=True).item()
             self.sequences = npy['sequences']
             self.num_image = npy['num_image']
 
@@ -123,16 +129,9 @@ class CO3DV2Dataset(BaseDataset):
         # decide now if we mask the bg
         mask_bg = (self.mask_bg == True) or (self.mask_bg == 'rand' and rng.choice(2))
 
-        annotation_path_train = osp.join(self.data_root, scene[0] + '_train.jgz')
-        annotation_path_test = osp.join(self.data_root, scene[0] + '_test.jgz')
-
-        with gzip.open(annotation_path_train, 'rt', encoding='utf-8') as f:
-            annotation_train = json.load(f)
-
-        with gzip.open(annotation_path_test, 'rt', encoding='utf-8') as f:
-            annotation_test = json.load(f)
-
-        annotation = {**annotation_train, **annotation_test}[scene[1]]
+        annotation_path = osp.join(self.data_root, f'{scene[0]}_{self.mode}.jgz')
+        with gzip.open(annotation_path, 'rt', encoding='utf-8') as f:
+            annotation = json.load(f)[scene[1]]
 
         num_img = len(annotation)
         should_replace = num_img < self.frame_num
