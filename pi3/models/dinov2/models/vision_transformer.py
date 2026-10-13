@@ -214,12 +214,16 @@ class DinoVisionTransformer(nn.Module):
 
     def prepare_tokens_with_masks(self, x, masks=None):
         B, nc, w, h = x.shape
+        print(f'input x shape: {x.shape}')
         x = self.patch_embed(x)
+        print(f'after patch_embed x shape: {x.shape}')
         if masks is not None:
             x = torch.where(masks.unsqueeze(-1), self.mask_token.to(x.dtype).unsqueeze(0), x)
 
         x = torch.cat((self.cls_token.expand(x.shape[0], -1, -1), x), dim=1)
+        print(f'after cls token: {x.shape}')
         x = x + self.interpolate_pos_encoding(x, w, h)
+        print(f'after pos encoding: {x.shape}')
 
         if self.register_tokens is not None:
             x = torch.cat(
@@ -230,6 +234,7 @@ class DinoVisionTransformer(nn.Module):
                 ),
                 dim=1,
             )
+            print(f'after register tokens: {x.shape}')
 
         return x
 

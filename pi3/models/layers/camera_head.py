@@ -52,7 +52,9 @@ class CameraHead(nn.Module):
             feat = self.res_conv[i](feat)
 
         # feat = self.avgpool(feat)
+        print(f'camera head feat shape: {feat.shape}, patch_h: {patch_h}, patch_w: {patch_w}')
         feat = self.avgpool(feat.permute(0, 2, 1).reshape(BN, -1, patch_h, patch_w).contiguous())              ##########
+        print(f'after avgpool, feat shape: {feat.shape}')
         feat = feat.view(feat.size(0), -1)
 
         feat = self.more_mlps(feat)  # [B, D_]

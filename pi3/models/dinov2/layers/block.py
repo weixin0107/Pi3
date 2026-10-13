@@ -92,6 +92,7 @@ class Block(nn.Module):
         def ffn_residual_func(x: Tensor) -> Tensor:
             return self.ls2(self.mlp(self.norm2(x)))
 
+        # print(f'sample_drop_ratio: {self.sample_drop_ratio}') # 0.0
         if self.training and self.sample_drop_ratio > 0.1:
             # the overhead is compensated only for a drop path rate larger than 0.1
             x = drop_add_residual_stochastic_depth(
@@ -120,6 +121,7 @@ def drop_add_residual_stochastic_depth(
 ) -> Tensor:
     # 1) extract subset using permutation
     b, n, d = x.shape
+    print(f'sample_drop_ratio: {sample_drop_ratio}')
     sample_subset_size = max(int(b * (1 - sample_drop_ratio)), 1)
     brange = (torch.randperm(b, device=x.device))[:sample_subset_size]
     x_subset = x[brange]

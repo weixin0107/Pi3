@@ -74,8 +74,11 @@ class LinearPts3d (nn.Module):
 
         # extract 3D points
         feat = self.proj(tokens)  # B,S,D
+        print(f'extract 3d points, feat shape: {feat.shape}')
         feat = feat.transpose(-1, -2).view(B, -1, H//self.patch_size, W//self.patch_size)
+        print(f'feat shape after view: {feat.shape}')
         feat = F.pixel_shuffle(feat, self.patch_size)  # B,3,H,W
+        print(f'after pixel shuffle, feat shape: {feat.shape}')
 
         # permute + norm depth
         return feat.permute(0, 2, 3, 1)

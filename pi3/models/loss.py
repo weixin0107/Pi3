@@ -113,6 +113,7 @@ class PointLoss(nn.Module):
         pred_local_pts = pred['local_points']
         gt_local_pts = gt['local_points']
         valid_masks = gt['valid_masks']
+        print(f'pred_local_pts shape: {pred_local_pts.shape}, gt_local_pts shape: {gt_local_pts.shape}, valid_masks shape: {valid_masks.shape}')
         details = dict()
         final_loss = 0.0
 

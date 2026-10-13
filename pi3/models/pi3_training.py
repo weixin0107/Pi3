@@ -229,6 +229,7 @@ class Pi3(nn.Module):
 
         # Concatenate special tokens with patch tokens
         hidden = torch.cat([register_token, hidden], dim=1)
+        print(f'hiden shape after adding register tokens: {hidden.shape}')
         hw = hidden.shape[1]
 
         if self.pos_type.startswith('rope'):
@@ -270,16 +271,21 @@ class Pi3(nn.Module):
         # encode by dinov2
         imgs = imgs.reshape(B*N, _, H, W)
         hidden = self.encoder(imgs, is_training=True)
+        print(f'hidden keys: {hidden.keys()}')
 
         if isinstance(hidden, dict):
             hidden = hidden["x_norm_patchtokens"]
 
         hidden, pos = self.decode(hidden, N, H, W)
+        print(f'hidden shape after decoder: {hidden.shape}, pos shape: {pos.shape}')
 
         point_hidden = self.point_decoder(hidden, xpos=pos)
         if self.train_conf:
             conf_hidden = self.conf_decoder(hidden, xpos=pos)
+        print(f'point_hidden shape: {point_hidden.shape}')
         camera_hidden = self.camera_decoder(hidden, xpos=pos)
+        print(f'camera_hidden shape: {camera_hidden.shape}')
+        print(f'use global points: {self.use_global_points}')
         if self.use_global_points:
             context = hidden.reshape(B, N, patch_h*patch_w+self.patch_start_idx, -1)[:, 0:1].repeat(1, N, 1, 1).reshape(B*N, patch_h*patch_w+self.patch_start_idx, -1)
             global_point_hidden = self.global_points_decoder(hidden, context, xpos=pos, ypos=pos)
@@ -288,6 +294,7 @@ class Pi3(nn.Module):
             # local points
             point_hidden = point_hidden.float()
             ret = self.point_head([point_hidden[:, self.patch_start_idx:]], (H, W)).reshape(B, N, H, W, -1)
+            print(f'ret shape: {ret.shape}')
             xy, z = ret.split([2, 1], dim=-1)
             z = torch.exp(z)
             local_points = torch.cat([xy * z, z], dim=-1)
