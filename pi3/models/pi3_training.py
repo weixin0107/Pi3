@@ -266,6 +266,7 @@ class Pi3(nn.Module):
         imgs = (imgs - self.image_mean) / self.image_std
 
         B, N, _, H, W = imgs.shape
+        print(f'B,N,H,W: {B},{N},{H},{W}')
         patch_h, patch_w = H // 14, W // 14
         
         # encode by dinov2

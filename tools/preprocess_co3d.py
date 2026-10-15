@@ -40,6 +40,9 @@ def get_parser():
 
 def process_poses(co3d_dir, category, output_dir, min_quality):
     category_dir = osp.join(co3d_dir, category)
+    if not os.path.exists(category_dir):
+        return 
+    
     print("Processing category:", category)
     frame_file = osp.join(category_dir, "frame_annotations.jgz")
     sequence_file = osp.join(category_dir, "sequence_annotations.jgz")

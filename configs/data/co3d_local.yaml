@@ -8,7 +8,7 @@ train_dataset:
 
     CO3DV2:
         _target_: datasets.co3dv2_dataset.CO3DV2Dataset
-        data_root: /home/voyah/Downloads/co3d
+        data_root: /mnt/data/wangzhixing/data/pi3_data/co3d_v2_mini/
         z_far: 0
         frame_num: 4
         aug_crop: 16
@@ -29,7 +29,7 @@ test_dataset:
 
     CO3DV2:
         _target_: datasets.co3dv2_dataset.CO3DV2Dataset
-        data_root: /home/voyah/Downloads/co3d
+        data_root: /mnt/data/wangzhixing/data/pi3_data/co3d_v2_mini/
         z_far: 0
         frame_num: 4
         resolution:

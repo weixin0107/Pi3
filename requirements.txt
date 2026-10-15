@@ -6,8 +6,8 @@ opencv-python
 plyfile
 huggingface_hub
 safetensors
-accelerate
-transformers
+accelerate==1.11.0
+transformers==4.57.1
 easydict
 hydra-core
 hydra-colorlog

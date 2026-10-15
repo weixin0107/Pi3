@@ -254,6 +254,8 @@ class Pi3Loss(nn.Module):
         super().__init__()
         self.point_loss = PointLoss(train_conf=train_conf)
         self.camera_loss = CameraLoss()
+        self.capture_pointclouds = False
+        self.last_pointcloud_export = None
 
     def prepare_gt(self, gt):
         gt_pts = torch.stack([view['pts3d'] for view in gt], dim=1)
@@ -320,6 +322,12 @@ class Pi3Loss(nn.Module):
         return pred
 
     def forward(self, pred, gt_raw):
+        self.last_pointcloud_export = None
+        print('pred keys11: ', pred.keys())
+        print('pred local_points shape: ', pred['local_points'].shape)
+        print(f'pred camera_poses shape: {pred["camera_poses"].shape}')
+        #print(f'pred camera_poses: {pred["camera_poses"]}')
+        
         gt = self.prepare_gt(gt_raw)
         pred = self.normalize_pred(pred, gt)
 
@@ -330,6 +338,16 @@ class Pi3Loss(nn.Module):
         point_loss, point_loss_details, scale = self.point_loss(pred, gt)
         final_loss += point_loss
         details.update(point_loss_details)
+
+        if self.capture_pointclouds:
+            batch_size = gt['local_points'].shape[0]
+            aligned_pred = pred['local_points'] * scale.view(batch_size, 1, 1, 1, 1)
+            self.last_pointcloud_export = {
+                'pred_local_points': aligned_pred.detach().cpu(),
+                'gt_local_points': gt['local_points'].detach().cpu(),
+                'valid_masks': gt['valid_masks'].detach().cpu(),
+                'imgs': gt['imgs'].detach().cpu(),
+            }
 
         # Camera Loss
         camera_loss, camera_loss_details = self.camera_loss(pred, gt, scale)

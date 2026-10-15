@@ -1,6 +1,9 @@
 from trainers.base_trainer_accelerate import BaseTrainer
 from easydict import EasyDict
+from pathlib import Path
+import re
 import torch
+import numpy as np
 from datasets.base.base_dataset import sample_resolutions
 import hydra
 
@@ -12,6 +15,18 @@ class Pi3Trainer(BaseTrainer):
 
         self.train_loss = hydra.utils.instantiate(cfg.loss.train_loss)
         self.test_loss = hydra.utils.instantiate(cfg.loss.test_loss)
+
+        export_cfg = cfg.train.get('pointcloud_export', {})
+        self.pointcloud_export_enabled = bool(export_cfg.get('enabled', False))
+        self.pointcloud_export_dir = Path(
+            export_cfg.get('output_dir', '/mnt/data/wangzhixing/tmp/pi3_local_gt')
+        )
+        self.pointcloud_export_max_sequences = int(export_cfg.get('max_sequences', 1))
+        self.pointcloud_exported_sequences = set()
+        if hasattr(self.test_loss, 'capture_pointclouds'):
+            self.test_loss.capture_pointclouds = (
+                self.pointcloud_export_enabled and self.accelerator.is_main_process
+            )
 
     def build_optimizer(self, cfg_optimizer, model):
         def param_group_fn(model_):
@@ -89,11 +104,80 @@ class Pi3Trainer(BaseTrainer):
             loss, details = self.train_loss(output, batch)
         else:
             loss, details = self.test_loss(output, batch)
+            if self.pointcloud_export_enabled and self.accelerator.is_main_process:
+                self._export_pointcloud_batch(batch)
 
         return EasyDict(
             loss=loss,
             **details
         )
+
+    @staticmethod
+    def _batch_metadata(view, key, sample_idx):
+        values = view.get(key)
+        if isinstance(values, (list, tuple)):
+            return values[sample_idx] if sample_idx < len(values) else None
+        return values
+
+    @staticmethod
+    def _safe_path_component(value):
+        value = re.sub(r'[^A-Za-z0-9._-]+', '_', str(value)).strip('._')
+        return value or 'unknown'
+
+    def _export_pointcloud_batch(self, batch):
+        export = getattr(self.test_loss, 'last_pointcloud_export', None)
+        if export is None or not batch:
+            return
+
+        predicted = export['pred_local_points']
+        ground_truth = export['gt_local_points']
+        valid_masks = export['valid_masks']
+        images = export['imgs']
+        batch_size, num_views = predicted.shape[:2]
+        max_sequences = self.pointcloud_export_max_sequences
+        xyzrgb_format = ['%.6f', '%.6f', '%.6f', '%d', '%d', '%d']
+
+        for sample_idx in range(batch_size):
+            if max_sequences > 0 and len(self.pointcloud_exported_sequences) >= max_sequences:
+                break
+
+            label = self._batch_metadata(batch[0], 'label', sample_idx)
+            label = str(label) if label is not None else f'sample_{sample_idx:04d}'
+            if label in self.pointcloud_exported_sequences:
+                continue
+
+            sequence_dir = self.pointcloud_export_dir / self._safe_path_component(label)
+            sequence_dir.mkdir(parents=True, exist_ok=True)
+
+            for view_idx in range(min(num_views, len(batch))):
+                instance = self._batch_metadata(batch[view_idx], 'instance', sample_idx)
+                frame_name = Path(str(instance or f'frame_{view_idx:04d}')).stem
+                stem = f'{view_idx:04d}_{self._safe_path_component(frame_name)}'
+
+                mask = valid_masks[sample_idx, view_idx].bool()
+                pred_frame = predicted[sample_idx, view_idx]
+                gt_frame = ground_truth[sample_idx, view_idx]
+                mask &= torch.isfinite(pred_frame).all(dim=-1)
+                mask &= torch.isfinite(gt_frame).all(dim=-1)
+
+                rgb_frame = (images[sample_idx, view_idx].permute(1, 2, 0).clamp(0, 1) * 255).round().to(torch.uint8)
+                rgb_values = rgb_frame[mask].numpy()
+                pred_xyzrgb = np.concatenate((pred_frame[mask].numpy(), rgb_values), axis=1)
+                gt_xyzrgb = np.concatenate((gt_frame[mask].numpy(), rgb_values), axis=1)
+
+                np.savetxt(
+                    sequence_dir / f'{stem}_local_points.txt',
+                    pred_xyzrgb,
+                    fmt=xyzrgb_format,
+                )
+                np.savetxt(
+                    sequence_dir / f'{stem}_gt_points.txt',
+                    gt_xyzrgb,
+                    fmt=xyzrgb_format,
+                )
+
+            self.pointcloud_exported_sequences.add(label)
+            self.log_info(f'Exported point clouds for {label} to {sequence_dir}')
 
 
 def recursive_get_dataset(dataset, res=[]):
